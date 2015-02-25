@@ -6,3 +6,12 @@ Run
 ```
 python -cds sample_input.txt -orgn Eutheria -o out_folder
 ```
+```
+-cds takes text file with gene names [Once gene in one line]
+```
+```
+-orgn is for defining organismal froup [Here -orgn Eutheria will pull sequences for all Eutherian mammals available in NCBI database]
+```
+```
+-o is the out folder
+```
