@@ -64,8 +64,13 @@ def natural_sort(l):
 
 
 def transfer_to(output):
+    try:
+        os.mkdir(output)
+    except:
+        pass
+
     folders = glob.glob("Sequences/*/Aligned/")
-    #folders = glob.glob("Sequences/PSMB4/Aligned/")
+    #folders = glob.glob("Sequences/ASPM/Aligned/")
     for folder in folders:
         recursive_overwrite(folder, output + "/" + folder.split("/")[1])
 
@@ -123,8 +128,8 @@ def recursive_overwrite(src, dest, ignore=None):
 
 def exon_names(logfileName):
     file_folders = glob.glob("Sequences/*/Aligned/")
+    #file_folders = glob.glob("Sequences/MCPH1/Aligned/")
     #file_folders = glob.glob("Sequences/ASPM/Aligned/")
-    #file_folders = glob.glob("Sequences/PSMB4/Aligned/")
     logData = open(logfileName, 'a+')
 
     for folders in file_folders:
@@ -212,7 +217,6 @@ def tblastnWrapper(geneName, recordX, message):
                                               num_threads=6,
                                               outfmt=5,
                                               seg="no",
-                                              evalue=0.0000000001,
                                               out=("%s/Result%s.xml"%(strore_blast_res,i))
                                               )
 
@@ -232,9 +236,9 @@ def tblastnWrapper(geneName, recordX, message):
                         
                     if re.search('<Hit_id>', line) != None:
                         hitFlag = True
-                        fcount = fcount + 1
-                        if fcount > 1:
-                            break
+                        #fcount = fcount + 1
+                        #if fcount > 1:
+                        #    break
                                 
                     if hitFlag == True:
                         if re.search('<Hit_def>', line) != None:
@@ -304,10 +308,10 @@ def collect_ccds_record(listObject, data_dict, rev=True):
                 if len(record.seq)%3 != 0:
                     if rev == True:
                         sequenceObj = record.seq.reverse_complement() + Seq("N"*(3 - len(record.seq)%3), generic_dna)
-                        record_original[geneName].append((record.id, str(sequenceObj)))
+                        record_original[geneName].append([record.id, str(sequenceObj)])
                     else:
                         sequenceObj = record.seq + Seq("N"*(3 - len(record.seq)%3), generic_dna)
-                        record_original[geneName].append((record.id, str(sequenceObj)))
+                        record_original[geneName].append([record.id, str(sequenceObj)])
                     
                     inseq = translate(sequenceObj)
                     if "*" in inseq:
@@ -319,10 +323,10 @@ def collect_ccds_record(listObject, data_dict, rev=True):
                 else:
                     if rev == True:
                         sequenceObj = record.seq.reverse_complement()
-                        record_original[geneName].append((record.id, str(sequenceObj)))
+                        record_original[geneName].append([record.id, str(sequenceObj)])
                     else:
                         sequenceObj = record.seq
-                        record_original[geneName].append((record.id, str(sequenceObj)))
+                        record_original[geneName].append([record.id, str(sequenceObj)])
                     
                     remaining = len(record.seq)%3
                     record.seq = translate(sequenceObj)
@@ -341,7 +345,7 @@ def collect_ccds_record(listObject, data_dict, rev=True):
                     if len(sequenceObj)%3 != 0:
                         sequenceObj = sequenceObj + Seq("N"*(3-len(sequenceObj)%3), generic_dna)
                     
-                    record_original[geneName].append((record.id, str(sequenceObj)))
+                    record_original[geneName].append([record.id, str(sequenceObj)])
                     inseq = translate(sequenceObj)
                     record.seq = inseq
 
@@ -351,7 +355,7 @@ def collect_ccds_record(listObject, data_dict, rev=True):
                     else:
                         sequenceObj = record.seq + Seq("N"*(3 - len(record.seq)%3), generic_dna)
                     
-                    record_original[geneName].append((record.id, str(sequenceObj)))
+                    record_original[geneName].append([record.id, str(sequenceObj)])
                     inseq = translate(sequenceObj)
                     remaining = len(record.seq)%3
                     record.seq = inseq
@@ -361,7 +365,7 @@ def collect_ccds_record(listObject, data_dict, rev=True):
                     else:
                         sequenceObj = record.seq
                     
-                    record_original[geneName].append((record.id, str(sequenceObj)))
+                    record_original[geneName].append([record.id, str(sequenceObj)])
                     
                     remaining = len(sequenceObj)%3
                     record.seq = translate(sequenceObj)
@@ -411,7 +415,7 @@ def pullPositive(data_pos, data_neg):
 
 
 
-def rewriteData(blastRecord, geneName, consensus_record, record_original_tot=None, record_original_tot_mouse=None):
+def rewriteData(blastRecord, geneName, eval_per_length, consensus_record, record_original_tot=None, record_original_tot_mouse=None):
     
     nContent = dict()
 
@@ -426,6 +430,13 @@ def rewriteData(blastRecord, geneName, consensus_record, record_original_tot=Non
     
     
         nContent[key.split("+")[0].split(":")[1]] = (left_Ns, right_Ns)
+        
+        if len(rec[1]) > 0 and len(rec[1]) <= 10:
+            eval_cut = eval_per_length["0-10"]
+        elif len(rec[1]) > 10 and len(rec[1]) <= 20:
+            eval_cut = eval_per_length["10-20"]
+        else:
+            eval_cut = eval_per_length["20-ahead"]
 
     
         with open("Sequences/" + geneName + "/Results/" + key + ".fas", "w") as fp:
@@ -434,7 +445,7 @@ def rewriteData(blastRecord, geneName, consensus_record, record_original_tot=Non
                 
                 for taxon, rec_Obj in consensus_record[geneName].items():
                     for rec in rec_Obj:
-                        if taxa_id in rec.id and rec.id.split("|")[0] != "Homo_sapiens":
+                        if taxa_id in rec.id and rec.id.split("|")[0] != "Homo_sapiens" and inval["eval"] < eval_cut:
                             if left_Ns == 0 and right_Ns == 0:
                                 seqObj = rec.seq[ inval["start"]-1:inval["stop"] ]
                             elif left_Ns != 0 and right_Ns == 0:
@@ -468,7 +479,7 @@ def rewriteData(blastRecord, geneName, consensus_record, record_original_tot=Non
 
 
 
-def writeData(blastRecord, geneName, consensus_record, orderCCDS_rev=None, orderCCDS_for=None, record_original_tot=None, record_original_tot_mouse=None):
+def writeData(blastRecord, geneName, consensus_record, eval_per_length, orderCCDS_rev=None, orderCCDS_for=None, record_original_tot=None, record_original_tot_mouse=None):
     
     nContent = dict()
 
@@ -507,11 +518,19 @@ def writeData(blastRecord, geneName, consensus_record, orderCCDS_rev=None, order
         
         with open("Sequences/" + geneName + "/Results/" + key + ".fas", "w") as fp:
             for inkey, inval in val.items():
+                #print inkey, inval["eval"]
                 taxa_id = inval["description"]
+                
+                if len(rec[1]) > 0 and len(rec[1]) <= 10:
+                    eval_cut = eval_per_length["0-10"]
+                elif len(rec[1]) > 10 and len(rec[1]) <= 20:
+                    eval_cut = eval_per_length["10-20"]
+                else:
+                    eval_cut = eval_per_length["20-ahead"]
                 
                 for taxon, rec_Obj in consensus_record[geneName].items():
                     for rec in rec_Obj:
-                        if taxa_id in rec.id and rec.id.split("|")[0] != "Homo_sapiens":
+                        if taxa_id in rec.id and rec.id.split("|")[0] != "Homo_sapiens" and inval["eval"] < eval_cut:
                             if left_Ns == 0 and right_Ns == 0:
                                 seqObj = rec.seq[ inval["start"]-1:inval["stop"] ]
                             elif left_Ns != 0 and right_Ns == 0:
@@ -554,31 +573,55 @@ def find_empty(listObject):
     return {k: v for k, v in emptyGenes.items() if v != []}
 
 
-def obj_preObj(ccdsObj, searchObj):
+def obj_preObj(ccdsObj, searchObj, record_original_tot_gene):
     collectDict = list()
+    nucSeqDict = {x[0]:x[1] for x in record_original_tot_gene}
+    stopCodons = ["TAG", "TGA", "TAA"]
     for i, x in enumerate(ccdsObj):
         if searchObj.split("/")[-1] in x.id:
-            if x.seq[-1:] == "X":
-                if i == len(ccdsObj) - 1:
+            if nucSeqDict[ccdsObj[0].id][-3:] not in stopCodons:
+                try:
                     newSeq = ccdsObj[i-1].seq + x.seq
                     idObj = x.id + "+" + ccdsObj[i-1].id + "_lag"
-                elif i == 0:
-                    newSeq = ccdsObj[i+1].seq + x.seq
-                    idObj = x.id + "+" + ccdsObj[i+1].id + "_lag"
-            elif x.seq[-3:] == "M":
-                if i == len(ccdsObj) - 1:
-                    newSeq = x.seq + ccdsObj[i-1].seq
-                    idObj = x.id + "+" + ccdsObj[i-1].id + "_lead"
-                elif i == 0:
-                    newSeq = x.seq + ccdsObj[i+1].seq
+                except IndexError:
+                    newSeq = newSeq = x.seq + ccdsObj[i+1].seq
                     idObj = x.id + "+" + ccdsObj[i+1].id + "_lead"
             else:
-                if i == len(ccdsObj) - 1:
-                    newSeq = ccdsObj[i-1].seq + x.seq
-                    idObj = x.id + "+" + ccdsObj[i-1].id + "_lag"
-                else:
-                    newSeq = x.seq + ccdsObj[i+1].seq
+                try:
+                    newSeq = ccdsObj[i+1].seq + x.seq
+                    idObj = x.id + "+" + ccdsObj[i+1].id + "_lag"
+                except IndexError:
+                    newSeq = x.seq + ccdsObj[i-1].seq
                     idObj = x.id + "+" + ccdsObj[i+1].id + "_lead"
+        
+            # if x.seq[-1:] == "X":
+            #    if i == len(ccdsObj) - 1:
+            #        newSeq = ccdsObj[i-1].seq + x.seq
+            #        idObj = x.id + "+" + ccdsObj[i-1].id + "_lag"
+            #    elif i == 0:
+            #        newSeq = ccdsObj[i+1].seq + x.seq
+            #        idObj = x.id + "+" + ccdsObj[i+1].id + "_lag"
+            #    else:
+            #        newSeq = ccdsObj[i+1].seq + x.seq
+            #        idObj = x.id + "+" + ccdsObj[i+1].id + "_lag"
+                        
+            #   elif x.seq[:1] == "M":
+            #    if i == len(ccdsObj) - 1:
+            #        newSeq = x.seq + ccdsObj[i-1].seq
+            #        idObj = x.id + "+" + ccdsObj[i-1].id + "_lead"
+            #    elif i == 0:
+            #        newSeq = x.seq + ccdsObj[i+1].seq
+            #        idObj = x.id + "+" + ccdsObj[i+1].id + "_lead"
+            #    else:
+            #        newSeq = x.seq + ccdsObj[i+1].seq
+            #        idObj = x.id + "+" + ccdsObj[i+1].id + "_lead"
+            # else:
+            #     if i == len(ccdsObj) - 1:
+            #         newSeq = ccdsObj[i-1].seq + x.seq
+            #         idObj = x.id + "+" + ccdsObj[i-1].id + "_lag"
+            #     else:
+            #         newSeq = x.seq + ccdsObj[i+1].seq
+            #         idObj = x.id + "+" + ccdsObj[i+1].id + "_lead"
 
             collectDict.append((idObj, newSeq))
 
@@ -656,7 +699,12 @@ def getCCDS(geneList, CCDSfile):
 ##############################################################################################
 
 
-def exec_mapping(listObject_human, listObject_mouse):
+def exec_mapping(listObject, tag, match_dict=None):
+    
+    
+    listObject_human = listObject
+    
+    eval_per_length = {"0-10": 1e-1, "10-20": 1e-3, "20-ahead": 1e-5}
 
     for geneName in listObject_human:
         for files in glob.glob("Sequences/" + geneName + "/BlastFiles/*.*"):
@@ -670,38 +718,18 @@ def exec_mapping(listObject_human, listObject_mouse):
 
     Entrez.email = "sendambuj@gmail.com"
 
-    ##############################################################
-    # Mouse CCDS
-    ##############################################################
-
-    geneMatch = dict()
-
-    if listObject_mouse != None:
-        for g1, g2 in zip(listObject_human, listObject_mouse):
-            geneMatch[g2] = (g1)
-
-        data_dict_mouse = getCCDS(listObject_mouse, "data/CCDS.current.mouse.txt")
-
-    if listObject_mouse != None:
-        orderCCDS_for_mouse, orderCCDS_rev_mouse, record_original_tot_mouse, ccds_record_mouse = getCCDS_record(data_dict_mouse, listObject_mouse)
-
-
-        for key, val in record_original_tot_mouse.items():
-            for i, rec in enumerate(val):
-                record_original_tot_mouse[key][i].id = key_max({x[0]: pdist(x[1], rec[1]) \
-                                for x in record_original_tot[geneMatch[key]] if pdist(x[1], rec[1]) >= 0.8})
-    
-            record_original_tot_mouse[geneMatch[key]] = record_original_tot_mouse.pop(key)
-    else:
-        record_original_tot_mouse = None
-
                 
     ##############################################################
     # Human CCDS
     ##############################################################
-                
-    data_dict_human = getCCDS(listObject_human, "data/CCDS.txt")
-    
+
+    if tag == "human":
+        data_dict_human = getCCDS(listObject_human, "data/CCDS.txt")
+    else:
+        data_dict_human = getCCDS(listObject_human, "data/CCDS.current.mouse.txt")
+        data_dict_human = {match_dict[key]:val for key, val in data_dict_human.items() if key in listObject_human}
+        listObject_human = [match_dict[x] for x in listObject_human]
+
     orderCCDS_for, orderCCDS_rev, record_original_tot, ccds_record = getCCDS_record(data_dict_human, listObject_human)
 
 
@@ -719,7 +747,7 @@ def exec_mapping(listObject_human, listObject_mouse):
     nContentRet = dict()
 
     for key, blastRecord in blast_out.items():
-        nContentRet[key] = writeData(blastRecord, key, consensus_record, orderCCDS_rev, orderCCDS_for, record_original_tot, record_original_tot_mouse)
+        nContentRet[key] = writeData(blastRecord, key, consensus_record, eval_per_length, orderCCDS_rev, orderCCDS_for, record_original_tot, record_original_tot_mouse=None)
 
 
     ########################################################################################################
@@ -738,7 +766,7 @@ def exec_mapping(listObject_human, listObject_mouse):
         for geneName, files in emptyFiles.items():
             new_ccds_record[geneName] = list()
             for filename in files:
-                collectEmpty = (obj_preObj(ccds_record[geneName], filename[:-4]))
+                collectEmpty = (obj_preObj(ccds_record[geneName], filename[:-4], record_original_tot[geneName]))
                 for objects in collectEmpty:
                     new_ccds_record[geneName].append(SeqRecord(objects[1], id = objects[0]))
 
@@ -749,7 +777,7 @@ def exec_mapping(listObject_human, listObject_mouse):
             blast_out_new[geneName], headStorage, gene_files = tblastnWrapper(geneName, new_ccds_record[geneName], message)
 
         for key, blastRecord in blast_out_new.items():
-            nContentRet[key] = rewriteData(blastRecord, key, consensus_record, record_original_tot, record_original_tot_mouse)
+            nContentRet[key] = rewriteData(blastRecord, key, eval_per_length, consensus_record, record_original_tot, record_original_tot_mouse=None)
 
         for geneName in blast_out_new.keys():
             files = [x for x in glob.glob("Sequences/" + geneName + "/Results/*.*") if "_lead" in x or "_lag" in x]
@@ -759,21 +787,24 @@ def exec_mapping(listObject_human, listObject_mouse):
                 recordObj_twins = list(SeqIO.parse(handle, "fasta"))
                 handle.close()
                 if "_lead" in filename:
-                    leadElement = filename.split(":")[2].rstrip("_lead.fas")
-                    leadFile = [x for x in prefiles if leadElement in x and "-lead" not in x][0]
+                    leadElement = filename.split(":")[2][:-9]
+                    leadFile = [x for x in prefiles if leadElement in x and "_lead" not in x][0]
                     leadHandle = open(leadFile, 'rU')
                     leadRecord = SeqIO.to_dict(SeqIO.parse(leadHandle, "fasta"))
                     leadRecord = {k.split("|")[0]:v for k, v in leadRecord.items()}
                     leadHandle.close()
                     for i, rec in enumerate(recordObj_twins):
-                        try:
-                            recordObj_twins[i].seq = rec.seq[:-len(leadRecord[rec.id])]
-                        except KeyError:
+                        if "gi|" in rec.id:
                             continue
+                        else:
+                            try:
+                                recordObj_twins[i].seq = rec.seq[:-len(leadRecord[rec.id.split("|")[0]])]
+                            except KeyError:
+                                continue
         
                 elif "_lag" in filename:
                     lagElement = filename.split(":")[2][:-8]
-                    lagFile = [x for x in prefiles if lagElement in x][0]
+                    lagFile = [x for x in prefiles if lagElement in x and "_lag" not in x][0]
                     lagHandle = open(lagFile, 'rU')
                     lagRecord = SeqIO.to_dict(SeqIO.parse(lagHandle, "fasta"))
                     lagRecord = {k.split("|")[0]:v for k, v in lagRecord.items()}
@@ -795,7 +826,7 @@ def exec_mapping(listObject_human, listObject_mouse):
                 with open(filename.split("+")[0].split("gi")[0] + filename.split("+")[0].split(":")[-1] + ".fas", "w") as fp:
                     SeqIO.write(recordObj_twins, fp, "fasta")
             
-    return nContentRet
+    return nContentRet, listObject_human, data_dict_human, record_original_tot
 
 
 ##########################################################################################################
@@ -805,8 +836,8 @@ def exec_mapping(listObject_human, listObject_mouse):
 
 def align_exon(nContentRet):
 
-    seqFolders = glob.glob("Sequences/*/")
-    #seqFolders = ["Sequences/PSMB4/"]
+    #seqFolders = glob.glob("Sequences/*/")
+    seqFolders = ["Sequences/IRX3/"]
 
     logfile = open("logData.log", "a+")
 
@@ -847,6 +878,7 @@ def align_exon(nContentRet):
                 SeqIO.write(record, fp, "fasta")
 
             outfile = filename.replace("Results", "Aligned")
+            print filename
             cdsAlign(filename, outfile)
             handle = open(outfile, 'rU')
             record = list(SeqIO.parse(handle, "fasta"))
@@ -866,6 +898,7 @@ def align_exon(nContentRet):
                 if len([x for x in rec.seq if x != "N" and x != "-"]) != 0:
                     seqRecordObj.append(SeqRecord(Seq(str(sequenceObj), generic_dna), id=rec.id, name=rec.name, description=rec.description))
                     #print Seq(str(rec.seq), generic_dna)
+                    
         
             with open(outfile[:-3] + "nex", "w") as fp:
                 SeqIO.write(seqRecordObj, fp, "nexus")
@@ -882,15 +915,16 @@ def align_exon(nContentRet):
 
 
 
-#listObject_human = ["ASPM", "CENPJ", "CDK5RAP2", "CEP152", "CEP63", "STIL", "WDR62", "PSMB2", "PSMB4", "CHMP2A", "EMC7", "GPI", "MCPH1", "SNRPD3", "RAB7A", "REEP5"]
-#listObject_human = ["PSMB4"]
-#listObject_mouse = ["Aspm", "Cenpj", "Cdk5rap2", "Cep152", "Cep63", "Stil", "Wdr62", "Psmb2", "Psmb4", "Chmp2a", "Emc7", "Gpi1", "Mcph1", "Snrpd3", "Rab7", "Reep5"]
 
-def fetcher(listObject_human, listObject_mouse, output, logObj = "exonName.log"):
-    nContentRet = exec_mapping(listObject_human, listObject_mouse=None)
+#listObject_h = ["ASPM", "CENPJ", "CDK5RAP2", "CEP152", "CEP63", "STIL", "WDR62", "PSMB2", "PSMB4", "CHMP2A", "EMC7", "GPI", "MCPH1", "SNRPD3", "RAB7A", "REEP5"]
+
+def fetcher(listObject_h, output, logObj = "exonName.log"):
+    output1 = "../ConCat-1.0/ConCat-1.0/data_human"
+    nContentRet, listObject_human, data_dict_human, record_original_tot = exec_mapping(listObject_h, tag="human")
+
     align_exon(nContentRet)
     exon_names(logObj)
-    transfer_to(output)
+    transfer_to(output1)
 
 
 

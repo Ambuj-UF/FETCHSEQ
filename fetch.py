@@ -195,9 +195,8 @@ def main():
                         print("Failed to import sequences for %s" %geneName.strip("\n"))
     
     listObject_human = [x.strip('\n') for x in genes]
-    listObject_mouse = None
 
-    fetcher(listObject_human, listObject_mouse, output=argmnts.o, logObj = "exonName.log")
+    fetcher(listObject_human, output=argmnts.o, logObj = "exonName.log")
 
 
 

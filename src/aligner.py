@@ -37,10 +37,9 @@ from Bio.Alphabet import SingleLetterAlphabet
 
 
 
-def _spliter(str, num):
-    '''Splits the string object'''
-    return [ str[start:start+num] for start in range(0, len(str), num) ]
+def manage_seqLength(x): return max(zip((x.count(item) for item in set(x)), set(x)))[1]
 
+def _spliter(str, num): return [ str[start:start+num] for start in range(0, len(str), num) ]
 
 
 def _groupy(L):
@@ -60,6 +59,9 @@ def _translator(recordData, ign, omit, table):
     
     for i, rec in enumerate(recordsFunc):
         counter = dict()
+        if len(rec.seq)%3 != 0:
+            rec.seq = rec.seq[:-(len(rec.seq)%3)]
+        print len(rec.seq), rec.seq[:4], rec.seq[-3:], rec.id
         seqT = rec.seq.translate()
         
         for j, obj in enumerate(seqT):
@@ -71,7 +73,7 @@ def _translator(recordData, ign, omit, table):
 
     with open('translated.fas', 'w') as fp:
         SeqIO.write(proteinSeqList, fp, 'fasta')
-    
+
     
     return recordsFunc
 
@@ -117,10 +119,10 @@ def _cleanAli(recordNuc, omit, fileName):
         
         records[i].seq = Seq(str(sequence).strip("N"), SingleLetterAlphabet())
 
+    optimal_length = manage_seqLength([len(rec.seq) for rec in records])
 
-    #for rec in records:
-    #print rec.seq
-
+    for i, rec in enumerate(records):
+        rec.seq = rec.seq[:optimal_length]
 
     with open(fileName, 'w') as fp:
         SeqIO.write(records, fp, "fasta")
