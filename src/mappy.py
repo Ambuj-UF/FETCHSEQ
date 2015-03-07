@@ -56,6 +56,8 @@ def pdist(seq1, seq2): return float(sum([1 for n1, n2 in zip(seq1, seq2) if str(
 
 def key_max(dictObj): return max(dictObj.iterkeys(), key=lambda k: dictObj[k])
 
+def combine_dict(a, b): return dict(a.items() + b.items() + [(k, a[k] + b[k]) for k in set(b) & set(a)])
+
 
 def natural_sort(l):
     convert = lambda text: int(text) if text.isdigit() else text.lower()
@@ -580,21 +582,21 @@ def obj_preObj(ccdsObj, searchObj, record_original_tot_gene):
     for i, x in enumerate(ccdsObj):
         if searchObj.split("/")[-1] in x.id:
             if nucSeqDict[ccdsObj[0].id][-3:] not in stopCodons:
-                try:
+                if x.seq[-3:] not in stopCodons:
+                    newSeq = x.seq + ccdsObj[i+1].seq
+                    idObj = x.id + "+" + ccdsObj[i+1].id + "_lead"
+                else:
                     newSeq = ccdsObj[i-1].seq + x.seq
                     idObj = x.id + "+" + ccdsObj[i-1].id + "_lag"
-                except IndexError:
-                    newSeq = newSeq = x.seq + ccdsObj[i+1].seq
-                    idObj = x.id + "+" + ccdsObj[i+1].id + "_lead"
             else:
-                try:
+                if x.seq[-3:] not in stopCodons:
+                    newSeq =  x.seq + ccdsObj[i-1].seq
+                    idObj = x.id + "+" + ccdsObj[i-1].id + "_lead"
+                else:
                     newSeq = ccdsObj[i+1].seq + x.seq
                     idObj = x.id + "+" + ccdsObj[i+1].id + "_lag"
-                except IndexError:
-                    newSeq = x.seq + ccdsObj[i-1].seq
-                    idObj = x.id + "+" + ccdsObj[i+1].id + "_lead"
         
-            # if x.seq[-1:] == "X":
+            #if x.seq[-1:] == "X":
             #    if i == len(ccdsObj) - 1:
             #        newSeq = ccdsObj[i-1].seq + x.seq
             #        idObj = x.id + "+" + ccdsObj[i-1].id + "_lag"
@@ -604,8 +606,8 @@ def obj_preObj(ccdsObj, searchObj, record_original_tot_gene):
             #    else:
             #        newSeq = ccdsObj[i+1].seq + x.seq
             #        idObj = x.id + "+" + ccdsObj[i+1].id + "_lag"
-                        
-            #   elif x.seq[:1] == "M":
+            #
+            #elif x.seq[:1] == "M":
             #    if i == len(ccdsObj) - 1:
             #        newSeq = x.seq + ccdsObj[i-1].seq
             #        idObj = x.id + "+" + ccdsObj[i-1].id + "_lead"
@@ -615,13 +617,13 @@ def obj_preObj(ccdsObj, searchObj, record_original_tot_gene):
             #    else:
             #        newSeq = x.seq + ccdsObj[i+1].seq
             #        idObj = x.id + "+" + ccdsObj[i+1].id + "_lead"
-            # else:
-            #     if i == len(ccdsObj) - 1:
-            #         newSeq = ccdsObj[i-1].seq + x.seq
-            #         idObj = x.id + "+" + ccdsObj[i-1].id + "_lag"
-            #     else:
-            #         newSeq = x.seq + ccdsObj[i+1].seq
-            #         idObj = x.id + "+" + ccdsObj[i+1].id + "_lead"
+            #else:
+            #    if i == len(ccdsObj) - 1:
+            #        newSeq = ccdsObj[i-1].seq + x.seq
+            #        idObj = x.id + "+" + ccdsObj[i-1].id + "_lag"
+            #    else:
+            #        newSeq = x.seq + ccdsObj[i+1].seq
+            #        idObj = x.id + "+" + ccdsObj[i+1].id + "_lead"
 
             collectDict.append((idObj, newSeq))
 
@@ -750,6 +752,7 @@ def exec_mapping(listObject, tag, match_dict=None):
         nContentRet[key] = writeData(blastRecord, key, consensus_record, eval_per_length, orderCCDS_rev, orderCCDS_for, record_original_tot, record_original_tot_mouse=None)
 
 
+
     ########################################################################################################
     # Rerun tblastn for small CCDS querry showing no hits. Program concatenate neighbour
     # CCDS sequence with the querry sequence to increase the overall querry length.
@@ -777,7 +780,7 @@ def exec_mapping(listObject, tag, match_dict=None):
             blast_out_new[geneName], headStorage, gene_files = tblastnWrapper(geneName, new_ccds_record[geneName], message)
 
         for key, blastRecord in blast_out_new.items():
-            nContentRet[key] = rewriteData(blastRecord, key, eval_per_length, consensus_record, record_original_tot, record_original_tot_mouse=None)
+            nContentRet[key] = combine_dict(nContentRet[key], rewriteData(blastRecord, key, eval_per_length, consensus_record, record_original_tot, record_original_tot_mouse=None))
 
         for geneName in blast_out_new.keys():
             files = [x for x in glob.glob("Sequences/" + geneName + "/Results/*.*") if "_lead" in x or "_lag" in x]
@@ -798,13 +801,22 @@ def exec_mapping(listObject, tag, match_dict=None):
                             continue
                         else:
                             try:
-                                recordObj_twins[i].seq = rec.seq[:-len(leadRecord[rec.id.split("|")[0]])]
+                                #recordObj_twins[i].seq = rec.seq[:-len(leadRecord[rec.id.split("|")[0]])]
+                                s1 = str(leadRecord[rec.id.split("|")[0]].seq[:10]).strip("N")
+                                s = str(rec.seq)
+                                try:
+                                    pos = re.search(str(s1), str(s)).start()
+                                    recordObj_twins[i].seq = rec.seq[:pos]
+                                except AttributeError:
+                                    recordObj_twins[i].seq = rec.seq[:-len(leadRecord[rec.id.split("|")[0]])]
+                                    continue
                             except KeyError:
                                 continue
         
                 elif "_lag" in filename:
                     lagElement = filename.split(":")[2][:-8]
                     lagFile = [x for x in prefiles if lagElement in x and "_lag" not in x][0]
+                    print lagFile
                     lagHandle = open(lagFile, 'rU')
                     lagRecord = SeqIO.to_dict(SeqIO.parse(lagHandle, "fasta"))
                     lagRecord = {k.split("|")[0]:v for k, v in lagRecord.items()}
@@ -814,7 +826,16 @@ def exec_mapping(listObject, tag, match_dict=None):
                             continue
                         else:
                             try:
-                                recordObj_twins[i].seq = rec.seq[len(lagRecord[rec.id.split("|")[0]])+1:]
+                                #recordObj_twins[i].seq = rec.seq[len(lagRecord[rec.id.split("|")[0]]):]
+                                s1 = str(leadRecord[rec.id.split("|")[0]].seq[-10:]).strip("N")
+                                s = str(rec.seq)
+                                try:
+                                    pos = re.search(str(s1), str(s)).end()
+                                    recordObj_twins[i].seq = rec.seq[pos:]
+                                    #recordObj_twins[i].seq = rec.seq[re.search(str(lagRecord[rec.id.split("|")[0]][-10:]).strip("N"), str(rec.seq)).end():]
+                                except AttributeError:
+                                    recordObj_twins[i].seq = rec.seq[len(lagRecord[rec.id.split("|")[0]]):]
+                                    continue
                             except KeyError:
                                 continue
 
@@ -835,9 +856,9 @@ def exec_mapping(listObject, tag, match_dict=None):
 
 
 def align_exon(nContentRet):
-
-    #seqFolders = glob.glob("Sequences/*/")
-    seqFolders = ["Sequences/IRX3/"]
+    exon_failed = list()
+    seqFolders = glob.glob("Sequences/*/")
+    #seqFolders = ["Sequences/PAX6/"]
 
     logfile = open("logData.log", "a+")
 
@@ -862,6 +883,8 @@ def align_exon(nContentRet):
                 fileCheck = filename.split("/")[-1][:-4]
             
             geneName = folders[10:len(folders)-1]
+            print nContentRet[geneName].keys()
+            print fileCheck
         
             if fileCheck in nContentRet[geneName].keys():
                 left_Ns = nContentRet[geneName][fileCheck][0]*"N"
@@ -879,7 +902,13 @@ def align_exon(nContentRet):
 
             outfile = filename.replace("Results", "Aligned")
             print filename
-            cdsAlign(filename, outfile)
+            
+            try:
+                cdsAlign(filename, outfile)
+            except:
+                exon_failed.append(filename)
+                break
+            
             handle = open(outfile, 'rU')
             record = list(SeqIO.parse(handle, "fasta"))
             handle.close()
@@ -899,6 +928,7 @@ def align_exon(nContentRet):
                     seqRecordObj.append(SeqRecord(Seq(str(sequenceObj), generic_dna), id=rec.id, name=rec.name, description=rec.description))
                     #print Seq(str(rec.seq), generic_dna)
                     
+
         
             with open(outfile[:-3] + "nex", "w") as fp:
                 SeqIO.write(seqRecordObj, fp, "nexus")
@@ -907,13 +937,11 @@ def align_exon(nContentRet):
 
     logfile.close()
 
-
+    return exon_failed
 
 ####################################################################################
 # BEGIN EXECUTION
 ####################################################################################
-
-
 
 
 #listObject_h = ["ASPM", "CENPJ", "CDK5RAP2", "CEP152", "CEP63", "STIL", "WDR62", "PSMB2", "PSMB4", "CHMP2A", "EMC7", "GPI", "MCPH1", "SNRPD3", "RAB7A", "REEP5"]
@@ -921,11 +949,10 @@ def align_exon(nContentRet):
 def fetcher(listObject_h, output, logObj = "exonName.log"):
     output1 = "../ConCat-1.0/ConCat-1.0/data_human"
     nContentRet, listObject_human, data_dict_human, record_original_tot = exec_mapping(listObject_h, tag="human")
-
+    
     align_exon(nContentRet)
     exon_names(logObj)
     transfer_to(output1)
-
 
 
 
