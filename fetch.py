@@ -72,22 +72,8 @@ parser.add_argument('-orgn', type=str, default=None,
 parser.add_argument('-ortho', type=str, default=None,
                     help='Takes species name for orthologue search')
 
-parser.add_argument('-pkg', type=str, default='muscle',
-                    choices=['muscle', 'mafft'],
-                    help='User defined program selection')
-
-parser.add_argument('-args', type=str,
-                    help='Arguments to run MAFFT. EXAMPLE: "--retree 2 --maxiterate 10"')
-
-parser.add_argument('-argf', type=str, default=None,
-                    help='Takes argument file as input')
-
 
 argmnts = parser.parse_args()
-
-
-if argmnts.pkg == 'mafft' and not argmnts.args:
-    parser.error('-args argument is required in "mafft" mode.')
 
 
 if argmnts.cds == True and argmnts.orgn == None and argmnts.ortho == None:
@@ -177,26 +163,21 @@ def main():
             genes = [argmnts.cds]
         
         for geneName in genes:
-
             warnings.filterwarnings("ignore")
-            try:
-                cdsImport(geneName.rstrip('\n'), argmnts.orgn, argmnts.ortho)
-            except:
-                print("\nConnection Failure. Rebooting program in 10 seconds\n")
-                time.sleep(10)
+            flagThing = False
+            while flagThing != True:
                 try:
                     cdsImport(geneName.rstrip('\n'), argmnts.orgn, argmnts.ortho)
+                    flagThing = True
                 except:
-                    print("\nConnection Failure. Rebooting program in 10 seconds\n")
-                    time.sleep(10)
-                    try:
-                        cdsImport(geneName.rstrip('\n'), argmnts.orgn, argmnts.ortho)
-                    except:
-                        print("Failed to import sequences for %s" %geneName.strip("\n"))
+                    print("\nConnection Failure. Re-executing program in 5 seconds\n")
+                    time.sleep(5)
+                    continue
     
     listObject_human = [x.strip('\n') for x in genes]
+    listObject_mouse = None
 
-    fetcher(listObject_human, output=argmnts.o, logObj = "exonName.log")
+    #fetcher(listObject_human, listObject_mouse, output=argmnts.o, logObj = "exonName.log")
 
 
 
