@@ -613,35 +613,6 @@ def obj_preObj(ccdsObj, searchObj, record_original_tot_gene):
                 else:
                     newSeq = ccdsObj[i+1].seq + x.seq
                     idObj = x.id + "+" + ccdsObj[i+1].id + "_lag"
-        
-            #if x.seq[-1:] == "X":
-            #    if i == len(ccdsObj) - 1:
-            #        newSeq = ccdsObj[i-1].seq + x.seq
-            #        idObj = x.id + "+" + ccdsObj[i-1].id + "_lag"
-            #    elif i == 0:
-            #        newSeq = ccdsObj[i+1].seq + x.seq
-            #        idObj = x.id + "+" + ccdsObj[i+1].id + "_lag"
-            #    else:
-            #        newSeq = ccdsObj[i+1].seq + x.seq
-            #        idObj = x.id + "+" + ccdsObj[i+1].id + "_lag"
-            #
-            #elif x.seq[:1] == "M":
-            #    if i == len(ccdsObj) - 1:
-            #        newSeq = x.seq + ccdsObj[i-1].seq
-            #        idObj = x.id + "+" + ccdsObj[i-1].id + "_lead"
-            #    elif i == 0:
-            #        newSeq = x.seq + ccdsObj[i+1].seq
-            #        idObj = x.id + "+" + ccdsObj[i+1].id + "_lead"
-            #    else:
-            #        newSeq = x.seq + ccdsObj[i+1].seq
-            #        idObj = x.id + "+" + ccdsObj[i+1].id + "_lead"
-            #else:
-            #    if i == len(ccdsObj) - 1:
-            #        newSeq = ccdsObj[i-1].seq + x.seq
-            #        idObj = x.id + "+" + ccdsObj[i-1].id + "_lag"
-            #    else:
-            #        newSeq = x.seq + ccdsObj[i+1].seq
-            #        idObj = x.id + "+" + ccdsObj[i+1].id + "_lead"
 
             collectDict.append((idObj, newSeq))
 
@@ -863,9 +834,11 @@ def exec_mapping(listObject, tag, match_dict=None):
                 for rec in recordObj_twins:
                     if len(rec.seq) != 0:
                         newRecObject_twins.append(rec)
+                
+                os.remove(filename)
+                os.remove([x for x in prefiles if filename.split("+")[0].split("gi")[0] + filename.split("+")[0].split(":")[-1] in x][0])
 
                 with open(filename.split("+")[0].split("gi")[0] + filename.split("+")[0].split(":")[-1] + ".fas", "w") as fp:
-                    os.remove(filename)
                     SeqIO.write(recordObj_twins, fp, "fasta")
                     
                         
