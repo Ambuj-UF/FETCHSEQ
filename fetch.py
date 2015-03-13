@@ -149,7 +149,6 @@ def main():
     if argmnts.cds != None:
         store = list()
         
-        
         try:
             os.mkdir("Sequences")
         except OSError:
@@ -175,9 +174,8 @@ def main():
                     continue
     
     listObject_human = [x.strip('\n') for x in genes]
-    listObject_mouse = None
 
-    #fetcher(listObject_human, listObject_mouse, output=argmnts.o, logObj = "exonName.log")
+    fetcher(listObject_human, output=argmnts.o, logObj = "exonName.log")
 
 
 

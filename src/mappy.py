@@ -58,6 +58,8 @@ def key_max(dictObj): return max(dictObj.iterkeys(), key=lambda k: dictObj[k])
 
 def combine_dict(a, b): return dict(a.items() + b.items() + [(k, a[k] + b[k]) for k in set(b) & set(a)])
 
+def pdist(s1, s2): return float(len([x for x, y in zip(s1, s2) if x == y and x != "-" and y != "-"]))/len([x for x, y in zip(s1, s2) if x != "-" and y != "-"])
+
 
 def natural_sort(l):
     convert = lambda text: int(text) if text.isdigit() else text.lower()
@@ -135,6 +137,7 @@ def exon_names(logfileName):
     logData = open(logfileName, 'a+')
 
     for folders in file_folders:
+        print folders
         files = natural_sort(glob.glob(folders + "*.*"))
         for filename in files:
             handle = open(filename, "rU")
@@ -213,14 +216,23 @@ def tblastnWrapper(geneName, recordX, message):
             stringNuc = ''
             for nuc in rec.seq:
                 stringNuc = stringNuc + nuc
-        
-            tblastn_cline = NcbitblastnCommandline(cmd='tblastn',
+            
+            flagThing = False
+
+            while flagThing != True:
+                try:
+                    tblastn_cline = NcbitblastnCommandline(cmd='tblastn',
                                               db="%s"%(blast_to),
                                               num_threads=6,
                                               outfmt=5,
                                               seg="no",
                                               out=("%s/Result%s.xml"%(strore_blast_res,i))
                                               )
+                    
+                    flagThing = True
+                except (urllib2.URLError, httplib.HTTPException), err:
+                    continue
+
 
             try:
                 stdout, stderr = tblastn_cline(stdin = stringNuc)
@@ -267,6 +279,9 @@ def tblastnWrapper(geneName, recordX, message):
             store_blasted = merge_dict(store_blasted, retData)
 
     retData = store_blasted
+    
+    if not storeHead:
+        storeHead = dict()
 
     return retData, storeHead, gene_files
 
@@ -296,15 +311,25 @@ def collect_ccds_record(listObject, data_dict, rev=True):
         first_flag = False
         
         for seq_coord in ccds_positions:
+            
+            flagThing = False
 
-            handle_in = Entrez.efetch(db="nucleotide",
+            while flagThing != True:
+                try:
+                    handle_in = Entrez.efetch(db="nucleotide",
                                        id=ccds_object["id"],
                                        rettype="fasta",
                                        strand=+1,
                                        seq_start=seq_coord[0] + 1,
                                        seq_stop=seq_coord[1] + 1)
+                                       
+                    record = SeqIO.read(handle_in, "fasta")
+                    flagThing = True
         
-            record = SeqIO.read(handle_in, "fasta")
+                except (IOError, httplib.HTTPException):
+                    continue
+        
+        
             
             if first_flag == False:
                 if len(record.seq)%3 != 0:
@@ -461,7 +486,7 @@ def rewriteData(blastRecord, geneName, eval_per_length, consensus_record, record
         
             recordObj = rem_short(recordObj)
         
-            if recordObj != []:
+            if recordObj != None:
                 for rec in record_original_tot[geneName]:
                     if key.split("+")[0].split(":")[1] in rec[0]:
                         recordObj.append(SeqRecord(Seq(rec[1][left_Ns:len(rec[1])-right_Ns], generic_dna), id=rec[0], description = "Homo_sapiens_CCDS"))
@@ -546,7 +571,7 @@ def writeData(blastRecord, geneName, consensus_record, eval_per_length, orderCCD
 
             recordObj = rem_short(recordObj)
             
-            if recordObj != []:
+            if recordObj:
                 for rec in record_original_tot[geneName]:
                     if key in rec[0]:
                         recordObj.append(SeqRecord(Seq(rec[1][left_Ns:len(rec[1])-right_Ns], generic_dna), id=rec[0], description = "Homo_sapiens_CCDS"))
@@ -582,9 +607,10 @@ def obj_preObj(ccdsObj, searchObj, record_original_tot_gene):
     for i, x in enumerate(ccdsObj):
         if searchObj.split("/")[-1] in x.id:
             if nucSeqDict[ccdsObj[0].id][-3:] not in stopCodons:
-                if x.seq[-3:] not in stopCodons:
+                if nucSeqDict[x.id][-3:] not in stopCodons:
                     newSeq = x.seq + ccdsObj[i+1].seq
                     idObj = x.id + "+" + ccdsObj[i+1].id + "_lead"
+
                 else:
                     newSeq = ccdsObj[i-1].seq + x.seq
                     idObj = x.id + "+" + ccdsObj[i-1].id + "_lag"
@@ -791,6 +817,8 @@ def exec_mapping(listObject, tag, match_dict=None):
                 handle.close()
                 if "_lead" in filename:
                     leadElement = filename.split(":")[2][:-9]
+                    print leadElement
+                    print prefiles
                     leadFile = [x for x in prefiles if leadElement in x and "_lead" not in x][0]
                     leadHandle = open(leadFile, 'rU')
                     leadRecord = SeqIO.to_dict(SeqIO.parse(leadHandle, "fasta"))
@@ -816,7 +844,6 @@ def exec_mapping(listObject, tag, match_dict=None):
                 elif "_lag" in filename:
                     lagElement = filename.split(":")[2][:-8]
                     lagFile = [x for x in prefiles if lagElement in x and "_lag" not in x][0]
-                    print lagFile
                     lagHandle = open(lagFile, 'rU')
                     lagRecord = SeqIO.to_dict(SeqIO.parse(lagHandle, "fasta"))
                     lagRecord = {k.split("|")[0]:v for k, v in lagRecord.items()}
@@ -827,7 +854,7 @@ def exec_mapping(listObject, tag, match_dict=None):
                         else:
                             try:
                                 #recordObj_twins[i].seq = rec.seq[len(lagRecord[rec.id.split("|")[0]]):]
-                                s1 = str(leadRecord[rec.id.split("|")[0]].seq[-10:]).strip("N")
+                                s1 = str(lagRecord[rec.id.split("|")[0]].seq[-10:]).strip("N")
                                 s = str(rec.seq)
                                 try:
                                     pos = re.search(str(s1), str(s)).end()
@@ -839,13 +866,17 @@ def exec_mapping(listObject, tag, match_dict=None):
                             except KeyError:
                                 continue
 
+
                 newRecObject_twins = list()
                 for rec in recordObj_twins:
                     if len(rec.seq) != 0:
                         newRecObject_twins.append(rec)
 
                 with open(filename.split("+")[0].split("gi")[0] + filename.split("+")[0].split(":")[-1] + ".fas", "w") as fp:
+                    os.remove(filename)
                     SeqIO.write(recordObj_twins, fp, "fasta")
+                    
+                        
             
     return nContentRet, listObject_human, data_dict_human, record_original_tot
 
@@ -858,7 +889,7 @@ def exec_mapping(listObject, tag, match_dict=None):
 def align_exon(nContentRet):
     exon_failed = list()
     seqFolders = glob.glob("Sequences/*/")
-    #seqFolders = ["Sequences/PAX6/"]
+    #seqFolders = ["Sequences/ASPM/"]
 
     logfile = open("logData.log", "a+")
 
@@ -883,8 +914,6 @@ def align_exon(nContentRet):
                 fileCheck = filename.split("/")[-1][:-4]
             
             geneName = folders[10:len(folders)-1]
-            print nContentRet[geneName].keys()
-            print fileCheck
         
             if fileCheck in nContentRet[geneName].keys():
                 left_Ns = nContentRet[geneName][fileCheck][0]*"N"
@@ -907,7 +936,10 @@ def align_exon(nContentRet):
                 cdsAlign(filename, outfile)
             except:
                 exon_failed.append(filename)
-                break
+                with open(outfile[:-3] + "nex", "w") as fp:
+                    SeqIO.write(record, fp, "nexus")
+            
+                continue
             
             handle = open(outfile, 'rU')
             record = list(SeqIO.parse(handle, "fasta"))
@@ -928,10 +960,21 @@ def align_exon(nContentRet):
                     seqRecordObj.append(SeqRecord(Seq(str(sequenceObj), generic_dna), id=rec.id, name=rec.name, description=rec.description))
                     #print Seq(str(rec.seq), generic_dna)
                     
+            ref_seq_record = list()
+            human_seq = [x.seq for x in seqRecordObj if "gi|" in x.id][0]
+            with open("pdist_log.txt", "a+") as fp:
+                fp.write("\n%s\n\n"%folders.split("/")[-1])
+                for rec in seqRecordObj:
+                    p_distance = pdist(rec.seq, human_seq)
+                    if p_distance >= 0.5:
+                        ref_seq_record.append(rec)
+                    
+                    fp.write("%s\t%s\t%s\n" %(filename, rec.id, p_distance))
+            
 
         
             with open(outfile[:-3] + "nex", "w") as fp:
-                SeqIO.write(seqRecordObj, fp, "nexus")
+                SeqIO.write(ref_seq_record, fp, "nexus")
 
             os.remove(outfile)
 
@@ -943,16 +986,17 @@ def align_exon(nContentRet):
 # BEGIN EXECUTION
 ####################################################################################
 
+#genes = open("cong_micro.txt", 'r').readlines()
+#listObject_h = [x.rstrip("\n") for x in genes]
 
-#listObject_h = ["ASPM", "CENPJ", "CDK5RAP2", "CEP152", "CEP63", "STIL", "WDR62", "PSMB2", "PSMB4", "CHMP2A", "EMC7", "GPI", "MCPH1", "SNRPD3", "RAB7A", "REEP5"]
 
 def fetcher(listObject_h, output, logObj = "exonName.log"):
-    output1 = "../ConCat-1.0/ConCat-1.0/data_human"
     nContentRet, listObject_human, data_dict_human, record_original_tot = exec_mapping(listObject_h, tag="human")
-    
-    align_exon(nContentRet)
+    exon_failed = align_exon(nContentRet)
+    print("Failed to import sequences for following exons:\n%s" %exon_failed)
     exon_names(logObj)
-    transfer_to(output1)
+    transfer_to(output)
+
 
 
 
