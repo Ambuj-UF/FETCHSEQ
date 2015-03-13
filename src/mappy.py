@@ -23,6 +23,7 @@ import sys
 import re
 import glob
 import shutil
+import httplib
 import platform
 import subprocess
 
@@ -51,8 +52,6 @@ def file_is_empty(path): return os.stat(path).st_size==0
 def pick_longest(inputObject): return [rec for rec in inputObject if len(rec.seq) >= max([len(x.seq) for x in inputObject])][0]
 
 def strfind(s, ch): return [i for i, ltr in enumerate(s) if ltr == ch]
-
-def pdist(seq1, seq2): return float(sum([1 for n1, n2 in zip(seq1, seq2) if str(n1) == str(n2)]))/len(seq1)
 
 def key_max(dictObj): return max(dictObj.iterkeys(), key=lambda k: dictObj[k])
 
@@ -217,21 +216,14 @@ def tblastnWrapper(geneName, recordX, message):
             for nuc in rec.seq:
                 stringNuc = stringNuc + nuc
             
-            flagThing = False
 
-            while flagThing != True:
-                try:
-                    tblastn_cline = NcbitblastnCommandline(cmd='tblastn',
+            tblastn_cline = NcbitblastnCommandline(cmd='tblastn',
                                               db="%s"%(blast_to),
                                               num_threads=6,
                                               outfmt=5,
                                               seg="no",
                                               out=("%s/Result%s.xml"%(strore_blast_res,i))
                                               )
-                    
-                    flagThing = True
-                except (urllib2.URLError, httplib.HTTPException), err:
-                    continue
 
 
             try:
