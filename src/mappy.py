@@ -66,6 +66,104 @@ def natural_sort(l):
     return sorted(l, key = alphanum_key)
 
 
+
+def groupy(L):
+    first = last = L[0]
+    for n in L[1:]:
+        if n - 1 == last:
+            last = n
+        else:
+            yield first, last
+            first = last = n
+    yield first, last
+
+
+def two_to_one(listObj):
+    newList = list()
+    for l_obj in listObj:
+        for data in l_obj:
+            newList.append(data)
+    return newList
+
+
+
+def finder1(taxa, human, d, part):
+    """
+        Deals with alternate splicing issue by removing segment of sequence
+        that has extreme number of mismatching codons
+        
+        taxa = taxa sequence
+        human = human sequence
+        @d = reccomended -> 4
+        @part = reccomended -> 20
+        """
+    
+    stringObj_human = [human[i:i+part] for i in range(len(human)) if i <= len(human)-part]
+    stringObj_taxa = [taxa[i:i+part] for i in range(len(taxa)) if i <= len(taxa)-part]
+    skips = ["-", "?"]
+    store_pos = list()
+    
+    for (i, h_seq), (j, t_seq) in zip(enumerate(stringObj_human), enumerate(stringObj_taxa)):
+        
+        store_mismatch = list()
+        for m,n in zip(h_seq, t_seq):
+            if m != n and (m not in skips and n not in skips):
+                store_mismatch.append(m)
+        
+        if len(store_mismatch) <= d and set([x for x in t_seq]) != "-":
+            store_pos.append(i)
+
+    store_pos = [x for x in store_pos if stringObj_taxa[x:x+1] != "-"]
+
+    return [x for x in groupy(store_pos)]
+
+
+
+
+def finder2(taxa, human, d, part):
+    
+    """
+        Deals with alternate splicing issue by removing segment of sequence
+        that has extreme number of mismatching codons
+        
+        taxa = taxa sequence
+        human = human sequence
+        @d = reccomended -> 4
+        @part = reccomended -> 20
+        """
+    
+    stringObj_human = [human[i:i+part] for i in range(len(human)) if i <= len(human)-part]
+    stringObj_taxa = [taxa[i:i+part] for i in range(len(taxa)) if i <= len(taxa)-part]
+    
+    skips = ["-", "?"]
+    store_pos = list()
+    for (i, h_seq), (j, t_seq) in zip(enumerate(stringObj_human), enumerate(stringObj_taxa)):
+        store_mismatch = list()
+        for m,n in zip(h_seq, t_seq):
+            if m != n and (m not in skips and n not in skips):
+                store_mismatch.append(m)
+    
+        try:
+            if float(len(store_mismatch))/len([x for x in t_seq if x != "-" and x != "?"]) <= float(d)/part and set([x for x in t_seq]) != set("-"):
+                store_pos.append(i)
+        except ZeroDivisionError:
+            pass
+                
+    store_pos = [x for x in store_pos if taxa[x:x+1] != "-"]
+    
+    range_match = list()
+    for x in groupy(store_pos):
+        range_match.append(range(x[0]-1, x[1]))
+        range_match.append(range(x[1]-1, x[1]+20))
+    
+    range_match=two_to_one(range_match)
+    exact_match = [j for (i, h_obj), (j, t_obj) in zip(enumerate(human), enumerate(taxa)) if t_obj == h_obj or j in range_match]
+
+    return [y for y in [x for x in groupy(exact_match)] if y[1]-y[0] > 2]
+
+
+
+
 def transfer_to(output):
     try:
         os.mkdir(output)
@@ -129,42 +227,42 @@ def recursive_overwrite(src, dest, ignore=None):
 
 
 
-def exon_names(logfileName):
-    file_folders = glob.glob("Sequences/*/Aligned/")
-    #file_folders = glob.glob("Sequences/MCPH1/Aligned/")
+def exon_names(logfileName, data_dict_human, record_original_tot, geneName):
+    #file_folders = glob.glob("Sequences/*/Aligned/")
+    #file_folders = glob.glob("Sequences/ATP1A3/Aligned/")
     #file_folders = glob.glob("Sequences/ASPM/Aligned/")
+    file_folders = ["Sequences/" + geneName + "/Aligned/"]
     logData = open(logfileName, 'a+')
-
     for folders in file_folders:
         print folders
-        files = natural_sort(glob.glob(folders + "*.*"))
-        for filename in files:
-            handle = open(filename, "rU")
-            record = list(SeqIO.parse(handle, "nexus"))
-            handle.close()
-            for i, rec in enumerate(record):
-                if "gi|" in rec.id:
-                    record[i].id = "Homo_sapiens_CCDS|CCDS"
+        frame = data_dict_human[geneName]["frame"]
+        if frame == "-":
+            pass
+        elif frame == "+":
+            record_original_tot[geneName] = record_original_tot[geneName][::-1]
         
-            with open(filename, "w") as fp:
-                SeqIO.write(record, fp, "nexus")
-    
-        handle = open(files[0], 'rU')
-        record = list(SeqIO.parse(handle, "nexus"))
-        handle.close()
-        for rec in record:
-            if "Homo_sapiens_CCDS" in rec.id and str(rec.seq[:3]) == "ATG":
-                files = files
-                break
-            elif "Homo_sapiens_CCDS" in rec.id and str(rec.seq[:3]) != "ATG":
-                files = files[::-1]
-                break
-    
-        for i, filename in enumerate(files):
-            os.rename(filename, "/".join(filename.split("/")[:-1]) + "/exon" + str(i+1) + ".nex")
-            logData.write("%s - exon%s"%(filename, i))
+        print record_original_tot[geneName]
+        
+        files = glob.glob(folders + "*.*")
+        for i, rec in enumerate(record_original_tot[geneName]):
+            for filename in files:
+                if filename.split("/")[-1][:-4] in rec[0] or filename.split(":")[-1][:-4] in rec[0]:
+                    print i, filename.split("/")[-1][:-4], filename.split(":")[-1][:-4], rec[0]
+                    handle = open(filename, "rU")
+                    record = list(SeqIO.parse(handle, "nexus"))
+                    handle.close()
+                    for j, rec in enumerate(record):
+                        if "gi|" in rec.id:
+                            record[j].id = "Homo_sapiens_CCDS|CCDS"
+                    with open("/".join(filename.split("/")[:-1]) + "/exon" + str(i+1) + ".nex", "w") as fp:
+                        SeqIO.write(record, fp, "nexus")
+                    os.remove(filename)
+                    logData.write("%s - exon%s"%(filename, i))
+                    break
 
     logData.close()
+
+
 
 
 def tblastnWrapper(geneName, recordX, message):
@@ -173,6 +271,7 @@ def tblastnWrapper(geneName, recordX, message):
     store_blasted = dict()
     
     gene_files = dict()
+    
     with open("Sequences/" + geneName + "/CCDS.fas", "w") as fp:
         SeqIO.write(recordX, fp, "fasta")
     
@@ -216,6 +315,7 @@ def tblastnWrapper(geneName, recordX, message):
             for nuc in rec.seq:
                 stringNuc = stringNuc + nuc
             
+            flagThing = False
 
             tblastn_cline = NcbitblastnCommandline(cmd='tblastn',
                                               db="%s"%(blast_to),
@@ -613,10 +713,31 @@ def obj_preObj(ccdsObj, searchObj, record_original_tot_gene):
                 else:
                     newSeq = ccdsObj[i+1].seq + x.seq
                     idObj = x.id + "+" + ccdsObj[i+1].id + "_lag"
+        
 
             collectDict.append((idObj, newSeq))
 
     return collectDict
+
+
+
+
+def addExon(ccdsObj, geneName, searchObj, data_dict_human):
+    if data_dict_human[geneName]["frame"] == "+":
+        for i, x in enumerate(ccdsObj):
+            if searchObj.split("/")[-1] in x.id:
+                newSeq = x.seq + ccdsObj[i+1].seq
+                idObj = x.id + "+" + ccdsObj[i+1].id + "_lead"
+    else:
+        for i, x in enumerate(ccdsObj):
+            if searchObj.split("/")[-1] in x.id:
+                newSeq = ccdsObj[i-1].seq + x.seq
+                idObj = x.id + "+" + ccdsObj[i-1].id + "_lag"
+
+    collectDict.append((idObj, newSeq))
+
+    return collectDict
+
 
 
 
@@ -723,7 +844,6 @@ def exec_mapping(listObject, tag, match_dict=None):
 
     orderCCDS_for, orderCCDS_rev, record_original_tot, ccds_record = getCCDS_record(data_dict_human, listObject_human)
 
-
     blast_out = dict()
     gene_fileList = list()
                                         
@@ -780,8 +900,6 @@ def exec_mapping(listObject, tag, match_dict=None):
                 handle.close()
                 if "_lead" in filename:
                     leadElement = filename.split(":")[2][:-9]
-                    print leadElement
-                    print prefiles
                     leadFile = [x for x in prefiles if leadElement in x and "_lead" not in x][0]
                     leadHandle = open(leadFile, 'rU')
                     leadRecord = SeqIO.to_dict(SeqIO.parse(leadHandle, "fasta"))
@@ -834,12 +952,11 @@ def exec_mapping(listObject, tag, match_dict=None):
                 for rec in recordObj_twins:
                     if len(rec.seq) != 0:
                         newRecObject_twins.append(rec)
-                
+            
                 os.remove(filename)
-                os.remove([x for x in prefiles if filename.split("+")[0].split("gi")[0] + filename.split("+")[0].split(":")[-1] in x][0])
 
                 with open(filename.split("+")[0].split("gi")[0] + filename.split("+")[0].split(":")[-1] + ".fas", "w") as fp:
-                    SeqIO.write(recordObj_twins, fp, "fasta")
+                    SeqIO.write(newRecObject_twins, fp, "fasta")
                     
                         
             
@@ -854,7 +971,7 @@ def exec_mapping(listObject, tag, match_dict=None):
 def align_exon(nContentRet):
     exon_failed = list()
     seqFolders = glob.glob("Sequences/*/")
-    #seqFolders = ["Sequences/ASPM/"]
+    #seqFolders = ["Sequences/ATP1A3/", "Sequences/VCP/"]
 
     logfile = open("logData.log", "a+")
 
@@ -900,9 +1017,13 @@ def align_exon(nContentRet):
             try:
                 cdsAlign(filename, outfile)
             except:
-                exon_failed.append(filename)
-                with open(outfile[:-3] + "nex", "w") as fp:
-                    SeqIO.write(record, fp, "nexus")
+                if "gi" not in filename:
+                    exon_failed.append(filename)
+                if record != []:
+                    with open(outfile[:-3] + "nex", "w") as fp:
+                        SeqIO.write(record, fp, "nexus")
+                else:
+                    continue
             
                 continue
             
@@ -951,16 +1072,19 @@ def align_exon(nContentRet):
 # BEGIN EXECUTION
 ####################################################################################
 
-#genes = open("cong_micro.txt", 'r').readlines()
-#listObject_h = [x.rstrip("\n") for x in genes]
-
-
 def fetcher(listObject_h, output, logObj = "exonName.log"):
     nContentRet, listObject_human, data_dict_human, record_original_tot = exec_mapping(listObject_h, tag="human")
     exon_failed = align_exon(nContentRet)
     print("Failed to import sequences for following exons:\n%s" %exon_failed)
-    exon_names(logObj)
-    transfer_to(output)
+    for geneName in listObject_h:
+        try:
+            exon_names(logObj, data_dict_human, record_original_tot, geneName)
+        except:
+            pass
+
+    transfer_to(output1)
+
+
 
 
 
