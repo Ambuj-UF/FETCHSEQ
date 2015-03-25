@@ -6,6 +6,10 @@ Run
 ```
 python -cds sample_input.txt -orgn Eutheria -o out_folder
 ```
+or I would do
+```
+python -cds sample_input.txt -ortho Eutheria -o out_folder
+```
 ```
 -cds takes text file with gene names [Once gene in one line]
 ```
