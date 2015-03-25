@@ -10,12 +10,8 @@ or I would do
 ```
 python -cds sample_input.txt -ortho Eutheria -o out_folder
 ```
-```
 -cds takes text file with gene names [Once gene in one line]
-```
-```
+
 -orgn is for selecting organismal group [Here -orgn Eutheria will pull sequences for all Eutherian mammals available in NCBI database]
-```
-```
+
 -o is the output folder
-```
