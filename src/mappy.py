@@ -235,13 +235,18 @@ def exon_names(logfileName, data_dict_human, record_original_tot, geneName):
     logData = open(logfileName, 'a+')
     for folders in file_folders:
         print folders
+        
         frame = data_dict_human[geneName]["frame"]
         if frame == "-":
-            pass
+            if int(record_original_tot[geneName][0][0].split("-")[-1]) < int(record_original_tot[geneName][-1][0].split("-")[-1]):
+                record_original_tot[geneName] = record_original_tot[geneName][::-1]
+            else:
+                pass
         elif frame == "+":
-            record_original_tot[geneName] = record_original_tot[geneName][::-1]
-        
-        print record_original_tot[geneName]
+            if int(record_original_tot[geneName][0][0].split("-")[-1]) > int(record_original_tot[geneName][-1][0].split("-")[-1]):
+                record_original_tot[geneName] = record_original_tot[geneName][::-1]
+            else:
+                pass
         
         files = glob.glob(folders + "*.*")
         for i, rec in enumerate(record_original_tot[geneName]):
@@ -418,7 +423,7 @@ def collect_ccds_record(listObject, data_dict, rev=True):
                     record = SeqIO.read(handle_in, "fasta")
                     flagThing = True
         
-                except (IOError, httplib.HTTPException):
+                except (ValueError, IOError, httplib.HTTPException):
                     continue
         
         
@@ -971,7 +976,7 @@ def exec_mapping(listObject, tag, match_dict=None):
 def align_exon(nContentRet):
     exon_failed = list()
     seqFolders = glob.glob("Sequences/*/")
-    #seqFolders = ["Sequences/ATP1A3/", "Sequences/VCP/"]
+    #seqFolders = ["Sequences/ATP1A3/", "Sequences/AIMP1/"]
 
     logfile = open("logData.log", "a+")
 
@@ -1081,7 +1086,7 @@ def fetcher(listObject_h, output, logObj = "exonName.log"):
             exon_names(logObj, data_dict_human, record_original_tot, geneName)
         except:
             pass
-
+    
     transfer_to(output1)
 
 
