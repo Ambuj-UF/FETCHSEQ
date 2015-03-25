@@ -4,11 +4,11 @@ Extracts high quality CDS sequence from NCBI. It uses Human and mouse CCDS annot
 
 Run
 ```
-python -cds sample_input.txt -orgn Eutheria -o out_folder
+python fetch.py -cds sample_input.txt -orgn Eutheria -o out_folder
 ```
 or I would do
 ```
-python -cds sample_input.txt -ortho Eutheria -o out_folder
+python fetch.py -cds sample_input.txt -ortho Eutheria -o out_folder
 ```
 Use of -ortho method is only recommended while extracting mammalian sequence. 
 
