@@ -10,6 +10,8 @@ or I would do
 ```
 python -cds sample_input.txt -ortho Eutheria -o out_folder
 ```
+Use of -ortho method is only recommended while extracting mammalian sequence. 
+
 -cds takes text file with gene names [Once gene in one line]
 
 -orgn is for selecting organismal group [Here -orgn Eutheria will pull sequences for all Eutherian mammals available in NCBI database]
