@@ -32,12 +32,17 @@ import argparse
 import textwrap
 import warnings
 
+try:
+    from Bio.Alphabet import IUPAC, Gapped
+except:
+    sys.exit("FETCHSEQ requires biopython installation\n")
+
 from src.mappy import fetcher
 from src.fetchSeq import cdsImport
 from src.aligner import cdsAlign
 from Bio import AlignIO, SeqIO
 from StringIO import StringIO
-from Bio.Alphabet import IUPAC, Gapped
+
 
 
 parser = argparse.ArgumentParser(prog='Consensus',
