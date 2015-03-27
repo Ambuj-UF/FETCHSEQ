@@ -1,6 +1,6 @@
 #FETCHSEQ
 
-#Currently I am writing modules to discriminate between rapidly evolving CDS regions and misannotation/sequencing errors. 
+##Currently I am writing modules to discriminate between rapidly evolving CDS regions and misannotation/sequencing errors. 
 
 
 Extracts high quality CDS sequence from NCBI. It uses Human and mouse CCDS annotations to pull exon’s for closely related taxa. In theory, Human and Mouse CCDS coordinates are good enough to pull sequence data for any mammalian species.
